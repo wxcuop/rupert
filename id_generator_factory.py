@@ -75,6 +75,29 @@ class KSESeqGenerator:
         if not num_part.isdigit():
             return -1
         return int(num_part)
+	    
+class MonthClOrdIdGenerator:
+    def __init__(self, eid: int, seed: bool = True):
+        self.uid = eid
+        self.day_index = self._init_day_index()
+    
+    def _init_day_index(self) -> str:
+        mday = datetime.now().day
+        if mday < 26:
+            return chr(ord('A') + mday)
+        else:
+            return chr(ord('a') + mday - 26)
+    
+    def encode(self, to_be_encoded: int) -> str:
+        max_clordid = 2**31
+        if to_be_encoded >= max_clordid:
+            raise ValueError("Max ClOrdID exceeded")
+        return f"{self.day_index}{self.uid + to_be_encoded}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        if not to_be_decoded or len(to_be_decoded) < 2:
+            return -1
+        return int(to_be_decoded[1:])
 
 class NumericClOrdIdGenerator13Digits:
     def __init__(self, s: str):
