@@ -25,6 +25,70 @@ class BMESeqGenerator:
         
         return int(num_part)
 
+class BranchSeqIdGenerator:
+    def __init__(self, branch_range: str, generator_type: str):
+        parts = branch_range.split("-")
+        if len(parts) == 1:
+            parts.append("ZZZ")
+        
+        self.branch_start = self._format_branch(parts[0])
+        self.branch_end = self._format_branch(parts[1])
+        self.today_date = datetime.now().strftime("%Y%m%d")
+        
+        start_str = self.branch_start + "0001"
+        end_str = self.branch_end + "9999"
+        
+        self.start = self._decode(start_str) - 1
+        self.end = self._decode(end_str)
+        self.type = generator_type
+    
+    def _format_branch(self, branch: str) -> str:
+        branch = branch.strip().upper().ljust(3, 'A')
+        return branch[:3]
+    
+    def _decode(self, encoded: str) -> int:
+        if len(encoded) < 7:
+            return -1
+        
+        branch_part = encoded[:3]
+        seq_part = encoded[3:]
+        
+        if not branch_part.isalpha() or not seq_part.isdigit():
+            return -1
+        
+        branch_value = 0
+        for c in branch_part:
+            branch_value = branch_value * 26 + (ord(c) - ord('A'))
+        
+        return branch_value * 10000 + int(seq_part)
+    
+    def get_mapped_seq_no(self, in_seq_no: int) -> int:
+        num_skips = (in_seq_no - 1) // 9999
+        return num_skips + in_seq_no + self.start
+    
+    def encode(self, to_be_encoded: int) -> str:
+        if to_be_encoded <= 0:
+            raise ValueError("Encoded ID should be > 0")
+        
+        mapped_seq_no = self.get_mapped_seq_no(to_be_encoded)
+        if mapped_seq_no > self.end:
+            raise ValueError("ID generator allocation ended")
+        
+        seq_part = str(mapped_seq_no % 10000).zfill(4)
+        mapped_seq_no //= 10000
+        
+        branch_code = ""
+        for _ in range(3):
+            branch_code = chr(mapped_seq_no % 26 + ord('A')) + branch_code
+            mapped_seq_no //= 26
+        
+        if self.type == "CBOE":
+            return f"{branch_code}{seq_part}-{self.today_date}"
+        return ""
+    
+    def decode(self, encoded_str: str) -> int:
+        return self._decode(encoded_str)
+
 class CHIXBranchSeqGenerator:
     def __init__(self, prefix: str):
         if not prefix or len(prefix) > 5:
