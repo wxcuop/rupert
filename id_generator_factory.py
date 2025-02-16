@@ -26,6 +26,15 @@ class BMESeqGenerator:
         return int(num_part)
 
 class BranchSeqIdGenerator:
+    """
+    Branch sequence-based ID generation primarily used by NYSE and CBOE.
+    
+    NYSE: Not supported yet in this class.
+    
+    Needs to be configured in session with the following parameters:
+      - fixVariant: CBOE
+      - toVenueClordIdPrefixRange: A-G  # Provides the range between A to G
+    """
     def __init__(self, branch_range: str, generator_type: str):
         parts = branch_range.split("-")
         if len(parts) == 1:
