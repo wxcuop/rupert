@@ -99,6 +99,61 @@ class MonthClOrdIdGenerator:
             return -1
         return int(to_be_decoded[1:])
 
+class NyseBranchSeqGenerator:
+    RESERVED_BRANCH_CODES = {"HMQ", "QQQ", "RRR", "TTT", "YYY", "ZYX", "ZYY", "ZYZ", "ZZZ"}
+    
+    def __init__(self, branch_range: str):
+        parts = branch_range.split('-')
+        if len(parts) != 2:
+            raise ValueError(f"Invalid branch range: {branch_range}")
+        
+        self.min_branch = self._get_branch_value(parts[0])
+        self.max_branch = self._get_branch_value(parts[1])
+        
+        if self.min_branch is None or self.max_branch is None or self.min_branch > self.max_branch:
+            raise ValueError(f"Invalid branch range: {branch_range}")
+        
+        if any(self.min_branch * 10000 == self._get_branch_value(code) * 10000 for code in self.RESERVED_BRANCH_CODES):
+            raise ValueError(f"Starting branch code is reserved: {branch_range}")
+        
+        self.min_branch *= 10000
+        self.max_branch = self.max_branch * 10000 + 9999
+        self.available_ids = self.max_branch - self.min_branch
+    
+    def _get_branch_value(self, code: str) -> int:
+        if len(code) > 3 or not code.isalpha() or any(c < 'A' or c > 'Z' for c in code):
+            return None
+        
+        value = 0
+        for c in code:
+            value = value * 26 + (ord(c) - ord('A'))
+        return value
+    
+    def get_nth_id(self, seq_no: int) -> int:
+        if seq_no > self.available_ids:
+            return -1
+        return self.min_branch + seq_no
+    
+    def encode(self, to_be_encoded: int) -> str:
+        if to_be_encoded > self.available_ids:
+            return ""
+        
+        encoded_value = self.get_nth_id(to_be_encoded)
+        branch_code = "".join(chr((encoded_value // (26**i)) % 26 + ord('A')) for i in range(2, -1, -1))
+        num_code = str(encoded_value % 10000).zfill(4)
+        return f"{branch_code} {num_code}/{datetime.now().strftime('%m%d%Y')}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        try:
+            branch_code, num_code = to_be_decoded[:3], to_be_decoded[4:8]
+            branch_value = self._get_branch_value(branch_code)
+            if branch_value is None:
+                return -1
+            return branch_value * 10000 + int(num_code)
+        except Exception:
+            return -1
+
+
 class NumericClOrdIdGenerator13Digits:
     def __init__(self, s: str):
         if not s or len(s) > 3:
