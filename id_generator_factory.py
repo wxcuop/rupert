@@ -153,6 +153,44 @@ class NyseBranchSeqGenerator:
         except Exception:
             return -1
 
+class NumericClOrdIdGenerator:
+    TRAITS = {
+        10: {"max_clordid": 10_000_000, "endpoint_modulo": 100, "time_divisor": 28800},
+        11: {"max_clordid": 10_000_000, "endpoint_modulo": 1000, "time_divisor": 9600},
+        12: {"max_clordid": 10_000_000, "endpoint_modulo": 10000, "time_divisor": 9600},
+        13: {"max_clordid": 100_000_000, "endpoint_modulo": 10000, "time_divisor": 9600},
+        14: {"max_clordid": 1_000_000_000, "endpoint_modulo": 10000, "time_divisor": 9600},
+    }
+    
+    def __init__(self, eid: int, length: int = 10, seed: bool = True):
+        if length not in self.TRAITS:
+            raise ValueError("Unsupported ClOrdID length")
+        
+        self.length = length
+        self.seed = seed
+        self.uid = self._init_uid(eid)
+    
+    def _init_uid(self, eid: int) -> int:
+        traits = self.TRAITS[self.length]
+        uid = eid % traits["endpoint_modulo"]
+        
+        segment = 1
+        if self.seed:
+            segment = int(time.time()) % 86400 // traits["time_divisor"] + 1
+            if segment == 5:
+                segment += 1
+        
+        uid += segment * traits["endpoint_modulo"]
+        uid *= traits["max_clordid"]
+        return uid
+    
+    def encode(self, to_be_encoded: int) -> str:
+        if to_be_encoded >= self.TRAITS[self.length]["max_clordid"]:
+            raise ValueError("Max ClOrdID exceeded")
+        return str(self.uid + to_be_encoded)
+    
+    def decode(self, to_be_decoded: str) -> int:
+        return int(to_be_decoded) - self.uid
 
 class NumericClOrdIdGenerator13Digits:
     def __init__(self, s: str):
