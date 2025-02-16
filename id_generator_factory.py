@@ -1,13 +1,7 @@
 import logging
 import re
 from datetime import datetime
-from rupert.id_generator import (
-    NyseBranchSeqGenerator, CHIXBranchSeqGenerator, ESPSeqGenerator,
-    OSESeqGenerator, ClientOrderIdGenerator, BranchSeqIdGenerator,
-    NumericClOrdIdGenerator13Digits, MonthClOrdIdGenerator,
-    YMDClOrdIdGenerator, PSESeqGenerator, KSESeqGenerator,
-    CompSubIDPrefixGenerator
-)
+
 
 class BMESeqGenerator:
     def __init__(self, s: str):
@@ -31,10 +25,10 @@ class BMESeqGenerator:
         
         return int(num_part)
 
-class NyseBranchSeqGenerator:
+class CHIXBranchSeqGenerator:
     def __init__(self, prefix: str):
         if not prefix or len(prefix) > 5:
-            raise ValueError("NyseBranchSeqGenerator: Prefix length should be 5 or less")
+            raise ValueError("CHIXBranchSeqGenerator: Prefix length should be 5 or less")
         self.prefix = prefix.ljust(5, '0')
     
     def encode(self, sequence: int) -> str:
@@ -48,6 +42,57 @@ class NyseBranchSeqGenerator:
             return -1
         return int(sequence_part)
 
+class ESPSeqGenerator:
+    def __init__(self, s: str):
+        if not s or len(s) > 5:
+            raise ValueError("ESPSeqGenerator: Invalid parameter")
+        self.id_prefix = s.ljust(5, '0')
+    
+    def encode(self, to_be_encoded: int) -> str:
+        return f"{self.id_prefix}{to_be_encoded:010d}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        if not to_be_decoded or len(to_be_decoded) != 15:
+            return -1
+        num_part = to_be_decoded[5:]
+        if not num_part.isdigit():
+            return -1
+        return int(num_part)
+
+class KSESeqGenerator:
+    def __init__(self, s: str):
+        if not s or len(s) > 5:
+            raise ValueError("KSESeqGenerator: Invalid parameter")
+        self.id_prefix = s.ljust(5, '0')
+    
+    def encode(self, to_be_encoded: int) -> str:
+        return f"{self.id_prefix}{to_be_encoded:010d}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        if not to_be_decoded or len(to_be_decoded) != 15:
+            return -1
+        num_part = to_be_decoded[5:]
+        if not num_part.isdigit():
+            return -1
+        return int(num_part)
+
+class NumericClOrdIdGenerator13Digits:
+    def __init__(self, s: str):
+        if not s or len(s) > 3:
+            raise ValueError("NumericClOrdIdGenerator13Digits: Invalid parameter")
+        self.id_prefix = s.ljust(3, '0')
+    
+    def encode(self, to_be_encoded: int) -> str:
+        return f"{self.id_prefix}{to_be_encoded:010d}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        if not to_be_decoded or len(to_be_decoded) != 13:
+            return -1
+        num_part = to_be_decoded[3:]
+        if not num_part.isdigit():
+            return -1
+        return int(num_part)
+		
 class OSESeqGenerator:
     def __init__(self, s: str):
         if not s:
@@ -110,6 +155,22 @@ class YMDClOrdIdGenerator:
     
     def decode(self, to_be_decoded: str) -> int:
         return int(to_be_decoded[4:]) - self.uid
+		
+class CompSubIDPrefixGenerator:
+    def __init__(self, prop: str, config=None):
+        self.prop = prop
+        self.config = config
+    
+    def encode(self, to_be_encoded: int) -> str:
+        return f"{self.prop}{to_be_encoded:010d}"
+    
+    def decode(self, to_be_decoded: str) -> int:
+        if not to_be_decoded or len(to_be_decoded) <= len(self.prop):
+            return -1
+        num_part = to_be_decoded[len(self.prop):]
+        if not num_part.isdigit():
+            return -1
+        return int(num_part)
 
 class IdGeneratorFactory:
     @staticmethod
@@ -125,7 +186,7 @@ class IdGeneratorFactory:
                 "CBOE": BranchSeqIdGenerator,
                 "OSE": OSESeqGenerator,
                 "INT32": NumericClOrdIdGenerator,
-                "Numeric13": NumericClOrdIdGenerator,
+                "Numeric13": NumericClOrdIdGenerator13Digits,
                 "Monthly": MonthClOrdIdGenerator,
                 "YMD": YMDClOrdIdGenerator,
                 "Numeric14": NumericClOrdIdGenerator,
