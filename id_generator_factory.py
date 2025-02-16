@@ -346,6 +346,10 @@ class YMDClOrdIdGenerator:
         return int(to_be_decoded[4:]) - self.uid
 		
 class CompSubIDPrefixGenerator:
+""" 
+Create a unique ClOrdID prefixed with CompID+SubID
+The default output is to fix into 12 digits
+"""
     def __init__(self, prop: str, config=None):
         self.prop = prop
         self.config = config
