@@ -87,78 +87,120 @@ class Str:
         return h
 
     # Translated and integrated methods
-    def init(self, str_len):
+    def is_embedded(self):
+        return ord(self.chars_[self.MAX_EMBEDDED_LEN]) <= self.MAX_EMBEDDED_LEN
+
+    def length(self):
+        len = ord(self.chars_[self.MAX_EMBEDDED_LEN])
+        if len <= self.MAX_EMBEDDED_LEN:
+            if len == 0:
+                return 0 if self.chars_[0] == '\0' else self.MAX_EMBEDDED_LEN
+            return len
+        return self.len_
+
+    def c_str(self):
+        return self.chars_ if self.is_embedded() else self.external_str_
+
+    def to_str(self, ret_str_len):
+        len = ord(self.chars_[self.MAX_EMBEDDED_LEN])
+        if len <= self.MAX_EMBEDDED_LEN:
+            if len == 0:
+                ret_str_len = 0 if self.chars_[0] == '\0' else self.MAX_EMBEDDED_LEN
+                return self.chars_
+            ret_str_len = len
+            return self.chars_
+        ret_str_len = self.len_
+        return self.external_str_
+
+    def init(self, str):
+        if str is None:
+            self.init(str, 0)
+        else:
+            p = self.chars_
+            p_end = p + self.MAX_EMBEDDED_LEN + 1
+            s = str
+            while s and p < p_end:
+                p.append(s[0])
+                s = s[1:]
+            if p >= p_end:
+                str_len = len(str)
+                buf = ['\0'] * (str_len + 1)
+                buf[:str_len] = str
+                buf[str_len] = '\0'
+                self.len_ = str_len
+                self.external_str_ = buf
+                self.chars_[self.MAX_EMBEDDED_LEN] = chr(self.STR_EXTERNALLY_STORED)
+            else:
+                str_len = len(str)
+                self.chars_ = list(str) + ['\0'] * (self.MAX_EMBEDDED_LEN - str_len)
+                self.chars_[self.MAX_EMBEDDED_LEN] = chr(str_len)
+
+    def init_embedded(self, str_len1, str1, str_len2, str2):
+        str_len = str_len1 + str_len2
+        if str_len > self.MAX_EMBEDDED_LEN:
+            raise Exception("Str::init_embedded(): combined length is too long to be embedded")
+        self.chars_ = list(str1 + str2) + ['\0'] * (self.MAX_EMBEDDED_LEN - str_len)
+        self.chars_[self.MAX_EMBEDDED_LEN] = chr(str_len)
+
+    def init_external(self, str_len1, str1, str_len2, str2):
+        str_len = str_len1 + str_len2
         if str_len <= self.MAX_EMBEDDED_LEN:
-            self.chars_ = ['\0'] * (str_len + 1)
-            self.chars_[self.MAX_EMBEDDED_LEN] = chr(str_len)
-        else:
-            self.len_ = str_len
-            self.external_str_ = ['\0'] * (str_len + 1)
-            self.chars_[self.MAX_EMBEDDED_LEN] = chr(self.STR_EXTERNALLY_STORED)
+            raise Exception("Str::init_external(): combined length is too short to be external")
+        buf = list(str1 + str2) + ['\0']
+        self.len_ = str_len
+        self.external_str_ = buf
+        self.chars_[self.MAX_EMBEDDED_LEN] = chr(self.STR_EXTERNALLY_STORED)
 
-    def store_int_as_str(self, val):
-        c = [''] * self.MAX_EMBEDDED_LEN
-        size = 0
-        if val >= 10000000000:
-            if val >= 10000000000000:
-                if val >= 1000000000000000:
-                    size = 16
-                elif val >= 100000000000000:
-                    size = 15
-                else:
-                    size = 14
-            else:
-                if val >= 1000000000000:
-                    size = 13
-                elif val >= 100000000000:
-                    size = 12
-                else:
-                    size = 11
-        else:
-            if val >= 10000:
-                if val >= 10000000:
-                    if val >= 1000000000:
-                        size = 10
-                    elif val >= 100000000:
-                        size = 9
-                    else:
-                        size = 8
-                else:
-                    if val >= 1000000:
-                        size = 7
-                    elif val >= 100000:
-                        size = 6
-                    else:
-                        size = 5
-            else:
-                if val >= 100:
-                    if val >= 1000:
-                        size = 4
-                    else:
-                        size = 3
-                else:
-                    if val >= 10:
-                        size = 2
-                    elif val == 0:
-                        c[0] = '0'
-                        c[1] = '\0'
-                        self.chars_[self.MAX_EMBEDDED_LEN] = chr(1)
-                        return ''.join(c)
-                    else:
-                        size = 1
+    def deallocate_external_str(self):
+        if not self.is_embedded():
+            del self.external_str_
 
-        c = c[:size]
-        while val >= 100:
-            pos = val % 100
-            val //= 100
-            c[size-1] = self.digit_pairs[2*pos+1]
-            c[size-2] = self.digit_pairs[2*pos]
-            size -= 2
-        while val > 0:
-            c[size-1] = chr(48 + (val % 10))
-            val //= 10
-            size -= 1
-        c.append('\0')
-        if len(c) < self.MAX_EMBEDDED_LEN:
-            self.chars_[self.MAX_EMBEDDED_LEN] = chr(len(c) - 1)
-        return ''.join(c)
+    def set(self, str):
+        if not self.is_embedded():
+            if str == self.external_str_:
+                return
+            old_external_str = self.external_str_
+            self.init(str)
+            del old_external_str
+        else:
+            if str == self.chars_:
+                return
+            self.init(str)
+
+    def set_length(self, str_len):
+        self.deallocate_external_str()
+        self.init(str_len)
+
+    def set_str(self, str, str_len):
+        if not self.is_embedded():
+            old_external_str = self.external_str_
+            self.init(str, str_len)
+            del old_external_str
+        else:
+            if str == self.chars_:
+                return
+            self.init(str, str_len)
+
+    def __eq__(self, other):
+        if isinstance(other, Str):
+            return self.c_str() == other.c_str()
+        elif isinstance(other, str):
+            return self.c_str() == other
+        return False
+
+    def __add__(self, other):
+        if isinstance(other, Str):
+            str_len1 = self.length()
+            str_len2 = other.length()
+            if str_len1 + str_len2 <= self.MAX_EMBEDDED_LEN:
+                return Str(str_len1, str_len2, self.c_str(), other.c_str())
+            return Str(self.c_str(), other.c_str(), str_len1, str_len2)
+        return NotImplemented
+
+    def __lt__(self, other):
+        if isinstance(other, Str):
+            return self.c_str() < other.c_str()
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.c_str())
